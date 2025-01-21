@@ -143,9 +143,10 @@ void TensorWrapper::SetDataType(Qnn_DataType_t data_type) {
 void TensorWrapper::SetTensorData(std::uint32_t bytes, const void* data) {
   if (!IsSubgraphInput() && !IsTensorStatic()) {
     // TODO: error log
-    // LITERT_LOG(LITERT_ERROR,
-    //            "Cannot set tensor data of tensor type other than "
-    //            "QNN_TENSOR_TYPE_APP_WRITE or QNN_TENSOR_TYPE_STATIC.");
+    std::cout << "WARNING "
+                 "Cannot set tensor data of tensor type other than "
+                 "QNN_TENSOR_TYPE_APP_WRITE or QNN_TENSOR_TYPE_STATIC."
+              << std::endl;
     return;
   }
 
