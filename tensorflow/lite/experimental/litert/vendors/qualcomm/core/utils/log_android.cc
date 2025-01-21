@@ -1,11 +1,8 @@
-//==============================================================================
-//
-//  Copyright (c) Qualcomm Technologies, Inc.
+//  Copyright (c) Qualcomm Innovation Center, Inc.
 //  All Rights Reserved.
-//  Confidential and Proprietary - Qualcomm Technologies, Inc.
-//
-//==============================================================================
+
 #include <android/log.h>
+
 #include "log.h"
 
 namespace qnn {
@@ -38,7 +35,7 @@ void QNNLogger::SetLogLevel(TfLiteQnnDelegateLogLevel log_level) {
 }
 // NOLINTNEXTLINE(cert-dcl50-cpp)
 void QNNLogger::Log(TfLiteQnnDelegateLogLevel severity, const char* format,
-                     ...) {
+                    ...) {
   if (severity > log_level_) {
     return;
   }
@@ -50,8 +47,7 @@ void QNNLogger::Log(TfLiteQnnDelegateLogLevel severity, const char* format,
   // First log to Android's explicit log(cat) API.
   va_list args_copy;
   va_copy(args_copy, args);
-  __android_log_vprint(GetPlatformSeverity(severity), "qnn", format,
-                       args_copy);
+  __android_log_vprint(GetPlatformSeverity(severity), "qnn", format, args_copy);
   va_end(args_copy);
 
   // Print to file pointer.
@@ -60,4 +56,4 @@ void QNNLogger::Log(TfLiteQnnDelegateLogLevel severity, const char* format,
 
   va_end(args);
 }
-}  // namespace tflite::qnn
+}  // namespace qnn

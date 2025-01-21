@@ -1,10 +1,6 @@
-//==============================================================================
-//
-//  Copyright (c) Qualcomm Technologies, Inc.
+//  Copyright (c) Qualcomm Innovation Center, Inc.
 //  All Rights Reserved.
-//  Confidential and Proprietary - Qualcomm Technologies, Inc.
-//
-//==============================================================================
+
 #include "log.h"
 
 namespace qnn {
@@ -19,7 +15,7 @@ void QNNLogger::SetLogLevel(TfLiteQnnDelegateLogLevel log_level) {
 }
 // NOLINTNEXTLINE(cert-dcl50-cpp)
 void QNNLogger::Log(TfLiteQnnDelegateLogLevel severity, const char* format,
-                     ...) {
+                    ...) {
   if (severity > log_level_) {
     return;
   }
@@ -34,4 +30,4 @@ void QNNLogger::Log(TfLiteQnnDelegateLogLevel severity, const char* format,
 
   va_end(args);
 }
-}  // namespace tflite::qnn
+}  // namespace qnn

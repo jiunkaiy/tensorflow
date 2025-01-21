@@ -1,10 +1,5 @@
-//==============================================================================
-//
-//  Copyright (c) Qualcomm Technologies, Inc.
+//  Copyright (c) Qualcomm Innovation Center, Inc.
 //  All Rights Reserved.
-//  Confidential and Proprietary - Qualcomm Technologies, Inc.
-//
-//==============================================================================
 
 #include <gtest/gtest.h>
 
@@ -29,19 +24,19 @@ bool CheckLoggoing(const std::string log_path,
     // Log severity: DEBUG > VERBOSE > INFO > WARN > ERROR
     switch (log_level) {
       case kLogOff:
-        if (IsPrefix("ERROR:", msg)) return kTfLiteError;
+        if (IsPrefix("ERROR:", msg)) return false;
         [[fallthrough]];
       case kLogLevelError:
-        if (IsPrefix("WARNING:", msg)) return kTfLiteError;
+        if (IsPrefix("WARNING:", msg)) return false;
         [[fallthrough]];
       case kLogLevelWarn:
-        if (IsPrefix("INFO:", msg)) return kTfLiteError;
+        if (IsPrefix("INFO:", msg)) return false;
         [[fallthrough]];
       case kLogLevelInfo:
-        if (IsPrefix("VERBOSE:", msg)) return kTfLiteError;
+        if (IsPrefix("VERBOSE:", msg)) return false;
         [[fallthrough]];
       case kLogLevelVerbose:
-        if (IsPrefix("DEBUG:", msg)) return kTfLiteError;
+        if (IsPrefix("DEBUG:", msg)) return false;
         [[fallthrough]];
       default:
         break;

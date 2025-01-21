@@ -1,10 +1,6 @@
-#==============================================================================
-#
-#  Copyright (c) Qualcomm Technologies, Inc.
+#  Copyright (c) Qualcomm Innovation Center, Inc.
 #  All Rights Reserved.
-#  Confidential and Proprietary - Qualcomm Technologies, Inc.
-#
-#==============================================================================
+
 load("//tensorflow/lite/experimental/litert/build_common:litert_build_defs.bzl", "litert_test")
 
 package(
