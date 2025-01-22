@@ -81,8 +81,6 @@ class TensorWrapper final {
 
   void SetTensorData(std::uint32_t bytes, const void* data);
 
-  const std::vector<std::byte>& GetTensorData() const { return owned_data_; }
-
   // Allocate memory on owned_data_ for output tensors
   void AllocateOutputTensorBuffer() {
     owned_data_.resize(GetTensorSize());
