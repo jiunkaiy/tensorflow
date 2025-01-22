@@ -723,5 +723,13 @@ INSTANTIATE_TEST_SUITE_P(ModelSerializeQuantizedOpCheckTest,
                          ModelSerializeOpCheckTest,
                          ::testing::ValuesIn(kAllQModels));
 
+TEST(LoadModel, Load) {
+ const std::string model_path =
+     "/local/mnt/workspace/chunhsuehlee/LiteRT/models_google/gemma2_float32_seq512_ekv512.tflite";
+ auto model = litert::testing::LoadTestFileModel(model_path);
+ auto signatures = model.GetSignatures();
+ ASSERT_EQ(signatures->size(), 1);
+}
+
 }  // namespace
 }  // namespace litert::internal
