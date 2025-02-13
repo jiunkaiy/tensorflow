@@ -17,7 +17,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
-
+#include "tensorflow/lite/experimental/litert/compiler/plugin/algo.h"
+#include "tensorflow/lite/experimental/litert/core/model/graph_validation.h"
 #include "absl/strings/string_view.h"
 #include "tensorflow/lite/experimental/litert/c/litert_common.h"
 #include "tensorflow/lite/experimental/litert/c/litert_logging.h"
@@ -397,7 +398,6 @@ TEST(TestPartitionAndCompile, TwoPartitions) {
   auto num_ops_per_partition = ops.size() / num_partition;
 
   LiteRtCompiledResult compiled;
-  std::vector<LiteRtSubgraph> subgraph_vector;
 
   for (auto i = 0; i < num_partition; ++i) {
     std::vector<LiteRtOp> partition;
@@ -414,11 +414,10 @@ TEST(TestPartitionAndCompile, TwoPartitions) {
     ASSERT_TRUE(internal::ValidateSubgraphIO(internal_slice));
     ASSERT_TRUE(internal::ValidateLocalTopology(internal_slice.Ops().cbegin(),
                                                 internal_slice.Ops().cend()));
-    subgraph_vector.push_back(sliced_graph.Get());
   }
 
   LITERT_ASSERT_OK(LiteRtCompilerPluginCompile(
-      plugin.get(), "V75", subgraph_vector.data(), 2, &compiled));
+      plugin.get(), "V75", model.Get(), &compiled));
 }
 
 }  // namespace
