@@ -18,6 +18,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <fstream>
 #include <memory>
 #include <optional>
 #include <string>
@@ -27,7 +28,6 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
-#include "third_party/qairt/latest/include/QNN/HTP/QnnHtpDevice.h"
 #include "tensorflow/lite/experimental/litert/c/litert_common.h"
 #include "tensorflow/lite/experimental/litert/c/litert_logging.h"
 #include "tensorflow/lite/experimental/litert/c/litert_model.h"
@@ -41,6 +41,7 @@
 #include "tensorflow/lite/experimental/litert/vendors/qualcomm/core/wrappers/op_wrapper.h"
 #include "tensorflow/lite/experimental/litert/vendors/qualcomm/core/wrappers/tensor_wrapper.h"
 #include "tensorflow/lite/experimental/litert/vendors/qualcomm/qnn_manager.h"
+#include "third_party/qairt/latest/include/QNN/HTP/QnnHtpDevice.h"
 
 using ::litert::qnn::QnnManager;
 using LiteRtBufferId = uint32_t;
@@ -363,7 +364,7 @@ LiteRtStatus LiteRtCompilerPluginCompile(
   std::vector<QnnManager::ContextHandle> context_handles;
 
   // Compile each partition (subgraph) individually.
-  for (int partition_idx = 0; partition_idx < num_partitions; ++partition_idx) {
+  for (int partition_idx = 1; partition_idx < num_partitions; ++partition_idx) {
     LiteRtContextHandleIdx context_handle_idx = next_context_handle_idx;
     uint64_t largest_weight_size = 0;
     // Check all weights in this subgraph, see if any of them were previously
@@ -434,6 +435,12 @@ LiteRtStatus LiteRtCompilerPluginCompile(
     LITERT_RETURN_IF_ERROR((*qnn_manager)
                                ->GenerateContextBinary(context_handles[i].get(),
                                                        result->context_bin[i]));
+    const std::string output_path =
+        "/local/mnt/workspace/jiunkaiy/LiteRT/test_partition/qnn_partition_" +
+        std::to_string(i) + ".bin";
+    std::ofstream fout(output_path, std::ios::binary);
+    fout.write(result->context_bin[i].data(),
+               static_cast<int64_t>(result->context_bin[i].size()));
     LITERT_LOG(LITERT_INFO, "Context binary %d generated", i);
   }
   *compiled_result = result.release();
