@@ -102,6 +102,7 @@ litert_test(
         "//tensorflow/lite/experimental/litert/vendors/qualcomm/compiler/IR:qnn_op",
         "//tensorflow/lite/experimental/litert/vendors/qualcomm/compiler/IR:qnn_tensor",
         "//tensorflow/lite/experimental/litert/vendors/qualcomm/compiler/legalizations:quantize_op_legalization",
+        "//tensorflow/lite/experimental/litert/core/model:graph_validation"
     ],
 )
 
