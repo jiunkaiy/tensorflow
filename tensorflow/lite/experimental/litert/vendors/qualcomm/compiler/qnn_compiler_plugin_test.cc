@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <gtest/gtest.h>
+
 #include <cstddef>
 #include <cstdint>
 #include <string>
 
-#include <gtest/gtest.h>
 #include "absl/strings/string_view.h"
-#include "third_party/qairt/latest/include/QNN/QnnTypes.h"
 #include "tensorflow/lite/experimental/litert/c/litert_common.h"
 #include "tensorflow/lite/experimental/litert/c/litert_logging.h"
 #include "tensorflow/lite/experimental/litert/c/litert_model.h"
@@ -32,6 +32,7 @@
 #include "tensorflow/lite/experimental/litert/vendors/cc/litert_compiler_plugin.h"
 #include "tensorflow/lite/experimental/litert/vendors/qualcomm/compiler/IR/qnn_op.h"
 #include "tensorflow/lite/experimental/litert/vendors/qualcomm/compiler/legalizations/quantize_op_legalization.h"
+#include "third_party/qairt/latest/include/QNN/QnnTypes.h"
 
 namespace litert {
 namespace {
@@ -382,6 +383,43 @@ TEST_P(QnnPluginOpCompatibilityTest, SupportedOpsTest) {
 
 INSTANTIATE_TEST_SUITE_P(SupportedOpsTest, QnnPluginOpCompatibilityTest,
                          kSupportedOps);
+
+TEST(TestPartitionAndCompile, TwoPartitions) {
+  auto plugin = CreatePlugin();
+  auto num_partition = 2;
+  auto model = litert::testing::LoadTestFileModel("simple_multi_op.tflite");
+  auto subgraph = model.MainSubgraph();
+  EXPECT_TRUE(subgraph);
+
+  // For testing purpose, the test case only have 4 ops
+  // So only handle the even number case here
+  auto ops = subgraph->Ops();
+  auto num_ops_per_partition = ops.size() / num_partition;
+
+  LiteRtCompiledResult compiled;
+  std::vector<LiteRtSubgraph> subgraph_vector;
+
+  for (auto i = 0; i < num_partition; ++i) {
+    std::vector<LiteRtOp> partition;
+
+    for (auto j = i * num_ops_per_partition;
+         j < (i + 1) * num_ops_per_partition; ++j) {
+      partition.push_back(ops.at(j).Get());
+    }
+    auto sliced_graph = litert::Subgraph(&model.Get()->EmplaceSubgraph());
+    internal::OutlinePartition(*(subgraph->Get()), sliced_graph.Get(),
+                               partition);
+
+    const auto& internal_slice = *sliced_graph.Get();
+    ASSERT_TRUE(internal::ValidateSubgraphIO(internal_slice));
+    ASSERT_TRUE(internal::ValidateLocalTopology(internal_slice.Ops().cbegin(),
+                                                internal_slice.Ops().cend()));
+    subgraph_vector.push_back(sliced_graph.Get());
+  }
+
+  LITERT_ASSERT_OK(LiteRtCompilerPluginCompile(
+      plugin.get(), "V75", subgraph_vector.data(), 2, &compiled));
+}
 
 }  // namespace
 }  // namespace litert
