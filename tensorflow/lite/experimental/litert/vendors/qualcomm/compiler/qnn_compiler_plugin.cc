@@ -366,24 +366,24 @@ LiteRtStatus LiteRtCompilerPluginCompile(
   // Compile each partition (subgraph) individually.
   for (int partition_idx = 1; partition_idx < num_partitions; ++partition_idx) {
     LiteRtContextHandleIdx context_handle_idx = next_context_handle_idx;
-    uint64_t largest_weight_size = 0;
-    // Check all weights in this subgraph, see if any of them were previously
-    // seen and added to existing qnn context, use the largest weight size to
-    // determine which context to use.
-    for (const auto& op : model.Subgraph(partition_idx)->Ops()) {
-      for (const auto& input : op.Inputs()) {
-        if (input.IsConstant()) {
-          auto buffer_id = input.Weights().Get()->GetBufferId();
-          auto it = weight_sharing_map.find(buffer_id);
-          if (it != weight_sharing_map.end()) {
-            if (input.Weights().Get()->Buffer().Size() >= largest_weight_size) {
-              context_handle_idx = it->second;
-              largest_weight_size = input.Weights().Get()->Buffer().Size();
-            }
-          }
-        }
-      }
-    }
+    // uint64_t largest_weight_size = 0;
+    // // Check all weights in this subgraph, see if any of them were previously
+    // // seen and added to existing qnn context, use the largest weight size to
+    // // determine which context to use.
+    // for (const auto& op : model.Subgraph(partition_idx)->Ops()) {
+    //   for (const auto& input : op.Inputs()) {
+    //     if (input.IsConstant()) {
+    //       auto buffer_id = input.Weights().Get()->GetBufferId();
+    //       auto it = weight_sharing_map.find(buffer_id);
+    //       if (it != weight_sharing_map.end()) {
+    //         if (input.Weights().Get()->Buffer().Size() >= largest_weight_size) {
+    //           context_handle_idx = it->second;
+    //           largest_weight_size = input.Weights().Get()->Buffer().Size();
+    //         }
+    //       }
+    //     }
+    //   }
+    // }
     // If we didn't find a existing context handle for this subgraph, create a
     // new one.
     if (context_handle_idx == next_context_handle_idx) {
