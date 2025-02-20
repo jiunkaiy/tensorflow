@@ -94,6 +94,10 @@ class TensorWrapper final {
     return qnn_tensor_.v2.clientBuf.data;
   };
 
+  std::string GetName() const {
+    return name_;
+  };
+
  private:
   size_t GetTensorSize() const;
 
