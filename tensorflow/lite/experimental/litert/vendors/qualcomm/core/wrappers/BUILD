@@ -29,6 +29,7 @@ cc_library(
         "nobuilder",
     ],
     deps = [
+        "@com_google_absl//absl/types:span",
         # copybara:uncomment "//third_party/qairt/latest:qnn_lib_headers",
         "//tensorflow/lite/experimental/litert/vendors/qualcomm/core/wrappers:quantize_params_wrapper",
     ],
