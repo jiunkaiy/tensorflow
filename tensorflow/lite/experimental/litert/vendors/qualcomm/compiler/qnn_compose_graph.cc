@@ -23,8 +23,6 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
-#include "third_party/qairt/latest/include/QNN/QnnCommon.h"
-#include "third_party/qairt/latest/include/QNN/QnnTypes.h"
 #include "tensorflow/lite/experimental/litert/c/litert_common.h"
 #include "tensorflow/lite/experimental/litert/c/litert_logging.h"
 #include "tensorflow/lite/experimental/litert/c/litert_model.h"
@@ -35,7 +33,6 @@
 #include "tensorflow/lite/experimental/litert/cc/litert_model.h"
 #include "tensorflow/lite/experimental/litert/core/model/model.h"
 #include "tensorflow/lite/experimental/litert/vendors/qualcomm/common.h"
-#include "tensorflow/lite/experimental/litert/vendors/qualcomm/compiler/graph_mapper.h"
 #include "tensorflow/lite/experimental/litert/vendors/qualcomm/core/builders/cast_op_builder.h"
 #include "tensorflow/lite/experimental/litert/vendors/qualcomm/core/builders/concatenation_op_builder.h"
 #include "tensorflow/lite/experimental/litert/vendors/qualcomm/core/builders/dynamic_update_slice_op_builder.h"
@@ -60,6 +57,8 @@
 #include "tensorflow/lite/experimental/litert/vendors/qualcomm/core/wrappers/quantize_params_wrapper.h"
 #include "tensorflow/lite/experimental/litert/vendors/qualcomm/core/wrappers/tensor_wrapper.h"
 #include "tensorflow/lite/experimental/litert/vendors/qualcomm/qnn_manager.h"
+#include "third_party/qairt/latest/include/QNN/QnnCommon.h"
+#include "third_party/qairt/latest/include/QNN/QnnTypes.h"
 
 namespace litert::qnn {
 
@@ -426,40 +425,29 @@ LiteRtStatus ConvertOp(
   return kLiteRtStatusOk;
 }
 
-LiteRtStatus MapGraph(QnnManager& qnn, Qnn_ContextHandle_t context_handle,
-                      LiteRtSubgraph subgraph,
-                      absl::string_view qnn_graph_name) {
-  GraphMapper graph_mapper(subgraph, qnn, context_handle);
-  LITERT_RETURN_IF_ERROR(graph_mapper.IsLiteRtSubgraphSupported());
-  LITERT_RETURN_IF_ERROR(graph_mapper.InitQnnGraph(qnn_graph_name));
-
+LiteRtStatus MapGraph(::qnn::TensorPool& tensor_pool,
+                      ::qnn::GraphHandler& graph_handler,
+                      LiteRtSubgraph subgraph) {
   //
   // Legalize subgraph inputs and update tensors in scope
   //
+  Subgraph litert_subgraph(subgraph);
 
-  ::qnn::TensorPool tensor_pool(
-      [&qnn, &graph_mapper](::qnn::TensorWrapper& tensor_wrapper) {
-        qnn.Api()->tensorCreateGraphTensor(graph_mapper.QnnGraph(),
-                                           &tensor_wrapper.GetQnnTensor());
-      });
   absl::flat_hash_map<LiteRtTensor, ::qnn::TensorWrapper*>
       litert_tensor_to_wrapper;
 
-  for (const auto& subgraph_input : graph_mapper.Graph().Inputs()) {
+  // Convert subgraph input tensors first to keep the order of input tensors.
+  for (const auto& subgraph_input : litert_subgraph.Inputs()) {
     ::qnn::TensorWrapper* tensor_wrapper{nullptr};
     LITERT_RETURN_IF_ERROR(
         ConvertTensor(subgraph_input, tensor_pool, tensor_wrapper));
     litert_tensor_to_wrapper.emplace(subgraph_input.Get(), tensor_wrapper);
   }
 
-  for (const auto& subgraph_output : graph_mapper.Graph().Outputs()) {
-    graph_mapper.RegisterOutput(subgraph_output.Get());
-  }
   //
   // Topologically traverse graph, legalizing and updating tensors in scope
   //
-
-  for (const auto& op : graph_mapper.Graph().Ops()) {
+  for (const auto& op : litert_subgraph.Ops()) {
     std::vector<::qnn::TensorWrapperRef> input_tensors;
     for (const auto& input : op.Inputs()) {
       if (const auto it = litert_tensor_to_wrapper.find(input.Get());
@@ -489,14 +477,35 @@ LiteRtStatus MapGraph(QnnManager& qnn, Qnn_ContextHandle_t context_handle,
         ConvertOp(op, tensor_pool, input_tensors, output_tensors, op_wrappers));
 
     for (const auto& op_wrapper : op_wrappers) {
-      qnn.Api()->graphAddNode(graph_mapper.QnnGraph(),
-                              op_wrapper.GetOpConfig());
+      graph_handler.AddNode(op_wrapper);
     }
   }
 
-  LITERT_RETURN_STATUS_IF_QNN_NOT_OK(graph_mapper.Finalize());
+  // Record input tensor wrapper, and then we can fill input data later.
+  for (const auto& subgraph_input : litert_subgraph.Inputs()) {
+    if (const auto it = litert_tensor_to_wrapper.find(subgraph_input.Get());
+        it != litert_tensor_to_wrapper.end()) {
+      graph_handler.RegisterInputTensor(*(it->second));
+    } else {
+      LITERT_LOG(LITERT_ERROR,
+                 "Cannot find the corresponding input tensor wrapper");
+    }
+  }
 
-  return kLiteRtStatusOk;
+  // Record output tensor wrapper, and then we can read output data later.
+  for (const auto& subgraph_output : litert_subgraph.Outputs()) {
+    if (const auto it = litert_tensor_to_wrapper.find(subgraph_output.Get());
+        it != litert_tensor_to_wrapper.end()) {
+      graph_handler.RegisterOutputTensor(*(it->second));
+
+    } else {
+      LITERT_LOG(LITERT_ERROR,
+                 "Cannot find the corresponding output tensor wrapper");
+    }
+  }
+
+  return graph_handler.Finalize() ? kLiteRtStatusOk
+                                  : kLiteRtStatusErrorCompilation;
 }
 
 //===----------------------------------------------------------------------===//
@@ -528,8 +537,15 @@ LiteRtStatus MapGraph(QnnManager& qnn, Qnn_ContextHandle_t context_handle,
 LiteRtStatus ComposeGraph(QnnManager& qnn, Qnn_ContextHandle_t context_handle,
                           LiteRtSubgraph subgraph,
                           absl::string_view qnn_graph_name) {
-  LITERT_RETURN_IF_ERROR(
-      MapGraph(qnn, context_handle, subgraph, qnn_graph_name));
+  ::qnn::GraphHandler graph_handler(
+      qnn.Api(), context_handle,
+      std::string(qnn_graph_name.data(), qnn_graph_name.size()));
+  ::qnn::TensorPool tensor_pool(
+      [&qnn, &graph_handler](::qnn::TensorWrapper& tensor_wrapper) {
+        qnn.Api()->tensorCreateGraphTensor(graph_handler.QnnGraphHandle(),
+                                           &tensor_wrapper.GetQnnTensor());
+      });
+  LITERT_RETURN_IF_ERROR(MapGraph(tensor_pool, graph_handler, subgraph));
   return kLiteRtStatusOk;
 }
 

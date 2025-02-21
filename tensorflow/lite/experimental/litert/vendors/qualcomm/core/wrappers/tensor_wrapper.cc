@@ -3,6 +3,7 @@
 
 #include "tensorflow/lite/experimental/litert/vendors/qualcomm/core/wrappers/tensor_wrapper.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <iostream>
@@ -50,6 +51,62 @@ std::size_t GetDataTypeSize(const Qnn_DataType_t data_type) {
 }
 
 TensorWrapper::TensorWrapper() = default;
+
+TensorWrapper::TensorWrapper(const Qnn_Tensor_t& qnn_tensor)
+    : qnn_tensor_{qnn_tensor} {
+  if (qnn_tensor_.version == QNN_TENSOR_VERSION_1) {
+    name_ = qnn_tensor_.v1.name;
+    qnn_tensor_.v1.name = name_.data();
+    dimentions_.reserve(qnn_tensor_.v1.rank);
+    std::copy(qnn_tensor_.v1.dimensions,
+              qnn_tensor_.v1.dimensions + qnn_tensor_.v1.rank,
+              std::back_inserter(dimentions_));
+    if (const auto& quant_params = qnn_tensor_.v1.quantizeParams;
+        quant_params.encodingDefinition == QNN_DEFINITION_DEFINED) {
+      if (quant_params.quantizationEncoding ==
+          QNN_QUANTIZATION_ENCODING_SCALE_OFFSET) {
+        quantize_params_.emplace<ScaleOffsetQuantizeParamsWrapper>(
+            quant_params.scaleOffsetEncoding);
+      } else if (quant_params.quantizationEncoding ==
+                 QNN_QUANTIZATION_ENCODING_AXIS_SCALE_OFFSET) {
+        quantize_params_.emplace<AxisScaleOffsetQuantizeParamsWrapper>(
+            quant_params.axisScaleOffsetEncoding);
+      } else {
+      }
+    }
+    std::visit(
+        [this](auto&& quantize_params) -> void {
+          quantize_params.CloneTo(qnn_tensor_.v1.quantizeParams);
+        },
+        quantize_params_);
+  } else if (qnn_tensor_.version == Qnn_TensorVersion_t::QNN_TENSOR_VERSION_2) {
+    name_ = qnn_tensor_.v2.name;
+    qnn_tensor_.v2.name = name_.data();
+    dimentions_.reserve(qnn_tensor_.v2.rank);
+    std::copy(qnn_tensor_.v2.dimensions,
+              qnn_tensor_.v2.dimensions + qnn_tensor_.v2.rank,
+              std::back_inserter(dimentions_));
+    if (const auto& quant_params = qnn_tensor_.v2.quantizeParams;
+        quant_params.encodingDefinition == QNN_DEFINITION_DEFINED) {
+      if (quant_params.quantizationEncoding ==
+          QNN_QUANTIZATION_ENCODING_SCALE_OFFSET) {
+        quantize_params_.emplace<ScaleOffsetQuantizeParamsWrapper>(
+            quant_params.scaleOffsetEncoding);
+      } else if (quant_params.quantizationEncoding ==
+                 QNN_QUANTIZATION_ENCODING_AXIS_SCALE_OFFSET) {
+        quantize_params_.emplace<AxisScaleOffsetQuantizeParamsWrapper>(
+            quant_params.axisScaleOffsetEncoding);
+      } else {
+      }
+    }
+    std::visit(
+        [this](auto&& quantize_params) -> void {
+          quantize_params.CloneTo(qnn_tensor_.v2.quantizeParams);
+        },
+        quantize_params_);
+  } else {
+  }
+}
 
 TensorWrapper::TensorWrapper(
     std::uint32_t id, Qnn_TensorType_t tensor_type, Qnn_DataType_t data_type,

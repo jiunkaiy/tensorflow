@@ -7,8 +7,8 @@
 #include <functional>
 #include <list>
 
-#include "third_party/qairt/latest/include/QNN/QnnTypes.h"
 #include "tensorflow/lite/experimental/litert/vendors/qualcomm/core/wrappers/tensor_wrapper.h"
+#include "third_party/qairt/latest/include/QNN/QnnTypes.h"
 
 namespace qnn {
 

@@ -18,6 +18,7 @@
 #include "absl/strings/string_view.h"
 #include "tensorflow/lite/experimental/litert/c/litert_common.h"
 #include "tensorflow/lite/experimental/litert/c/litert_model.h"
+#include "tensorflow/lite/experimental/litert/vendors/qualcomm/core/graph_handler.h"
 #include "tensorflow/lite/experimental/litert/vendors/qualcomm/core/tensor_pool.h"
 #include "tensorflow/lite/experimental/litert/vendors/qualcomm/core/wrappers/op_wrapper.h"
 #include "tensorflow/lite/experimental/litert/vendors/qualcomm/qnn_manager.h"
@@ -36,6 +37,10 @@ LiteRtStatus ConvertOp(
     const std::vector<::qnn::TensorWrapperRef>& input_tensors,
     const std::vector<::qnn::TensorWrapperRef>& output_tensors,
     std::vector<::qnn::OpWrapper>& op_wrappers);
+
+LiteRtStatus MapGraph(::qnn::TensorPool& tensor_pool,
+                      ::qnn::GraphHandler& graph_handler,
+                      LiteRtSubgraph subgraph);
 
 // Composes a new QNN Graph from given LiteRt Graph. Qnn Graph is written to
 // context behind "qnn". Uses given graph_name to name entry point.

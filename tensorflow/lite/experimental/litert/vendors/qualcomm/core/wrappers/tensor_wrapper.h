@@ -20,6 +20,8 @@ class TensorWrapper final {
  public:
   explicit TensorWrapper();
 
+  explicit TensorWrapper(const Qnn_Tensor_t &qnn_tensor);
+
   explicit TensorWrapper(std::uint32_t id, Qnn_TensorType_t tensor_type,
                          Qnn_DataType_t data_type,
                          const QuantizeParamsWrapperVariant& quantize_params,
