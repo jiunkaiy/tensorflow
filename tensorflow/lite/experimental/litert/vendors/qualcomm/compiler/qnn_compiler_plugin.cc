@@ -20,6 +20,8 @@
 #include <cstdlib>
 #include <memory>
 #include <optional>
+#include <regex>
+#include <fstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -27,7 +29,6 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
-#include "third_party/qairt/latest/include/QNN/HTP/QnnHtpDevice.h"
 #include "tensorflow/lite/experimental/litert/c/litert_common.h"
 #include "tensorflow/lite/experimental/litert/c/litert_logging.h"
 #include "tensorflow/lite/experimental/litert/c/litert_model.h"
@@ -41,6 +42,7 @@
 #include "tensorflow/lite/experimental/litert/vendors/qualcomm/core/wrappers/op_wrapper.h"
 #include "tensorflow/lite/experimental/litert/vendors/qualcomm/core/wrappers/tensor_wrapper.h"
 #include "tensorflow/lite/experimental/litert/vendors/qualcomm/qnn_manager.h"
+#include "third_party/qairt/latest/include/QNN/HTP/QnnHtpDevice.h"
 
 using ::litert::qnn::QnnManager;
 using LiteRtBufferId = uint32_t;
@@ -56,6 +58,8 @@ namespace {
 
 constexpr char kPluginManufacturer[] = "Qualcomm";
 constexpr LiteRtParamIndex kDefaultPartitionIndex = 0;
+// Support 2 sharding for a8w8 Gemma2 decode for now
+constexpr LiteRtParamIndex kDefaultNumSharding = 2;
 
 // clang-format off
 constexpr std::pair<const char*, QnnHtpDevice_Arch_t> kPluginSocModels[] = {
@@ -281,6 +285,24 @@ LiteRtStatus LiteRtCompilerPluginPartition(LiteRtCompilerPlugin compiler_plugin,
   }
   LITERT_LOG(LITERT_INFO, "%s", "QNN manager created");
 
+  int slice_id = 0;
+  int layer_cnt = 0;
+  for (const auto& op : graph.Ops()) {
+    for (const auto& output : op.Outputs()) {
+      std::string node_name = std::string(op.Outputs()[0].Name());
+      std::regex pattern(R"(Gemma2/layer_(\d+)/add1)");
+      std::smatch match;
+      if (std::regex_search(node_name, match, pattern)) {
+        layer_cnt += 1;
+      }
+    }
+  }
+  slice_id = layer_cnt / kDefaultNumSharding;
+  LITERT_LOG(LITERT_INFO, "#Layer %d", layer_cnt);
+  LITERT_LOG(LITERT_INFO, "slice_id %d", slice_id);
+  std::string slice_str = "Gemma2/layer_" + std::to_string(slice_id) + "/add1";
+
+  LiteRtParamIndex partition_idx = kDefaultPartitionIndex;
   for (const auto& op : graph.Ops()) {
     // default constructed, won't add tensor to QNN
     ::qnn::TensorPool tensor_pool;
@@ -312,7 +334,13 @@ LiteRtStatus LiteRtCompilerPluginPartition(LiteRtCompilerPlugin compiler_plugin,
       LITERT_RETURN_IF_ERROR(
           // Use default partition index if vendor doesn't support multiple
           // partitions.
-          LiteRtPushOp(selected_ops, op.Get(), kDefaultPartitionIndex));
+          LiteRtPushOp(selected_ops, op.Get(), partition_idx));
+    }
+    std::string node_name = std::string(op.Outputs()[0].Name());
+    if (node_name.find(slice_str) !=
+                    std::string::npos) {
+      LITERT_LOG(LITERT_INFO, "Slice here %s", node_name.c_str());
+      partition_idx += 1;
     }
   }
 
@@ -353,7 +381,7 @@ LiteRtStatus LiteRtCompilerPluginCompile(
     return qnn_manager.Error().Status();
   }
   LITERT_LOG(LITERT_INFO, "%s", "QNN manager created");
-
+  /*
   // Map of LiteRt buffer id to context handle index.
   // This map memerizes the last context handle index of a weight was registered
   // in.
@@ -434,7 +462,46 @@ LiteRtStatus LiteRtCompilerPluginCompile(
     LITERT_RETURN_IF_ERROR((*qnn_manager)
                                ->GenerateContextBinary(context_handles[i].get(),
                                                        result->context_bin[i]));
-    LITERT_LOG(LITERT_INFO, "Context binary %d generated", i);
+  }
+  */
+
+  // result->context_bin.resize(num_partitions);
+  for (int partition_idx = 0; partition_idx < num_partitions; ++partition_idx) {
+  // for (int partition_idx = 1; partition_idx < num_partitions; ++partition_idx) {
+    // Initialize context.
+    LITERT_LOG(LITERT_INFO, "%s partition(%d)", "Creating context handle", partition_idx);
+    auto context_handle =
+        (*qnn_manager)->CreateContextHandle(QnnManager::DefaultContextConfigs());
+    if (!context_handle) {
+      LITERT_LOG(LITERT_ERROR, "%s",
+                context_handle.Error().Message().c_str());
+      return context_handle.Error().Status();
+    }
+    LITERT_LOG(LITERT_INFO, "%s", "Context handle created");
+
+    // Compose graphs.
+    LITERT_LOG(LITERT_INFO, "%s", "Composing graph");
+    std::string& entry_point_name = result->graph_names.emplace_back();
+    entry_point_name = absl::StrFormat(kEntryPointNameFmt, partition_idx);
+    LiteRtSubgraph partition = model.Subgraph(partition_idx)->Get();
+    LITERT_RETURN_IF_ERROR(litert::qnn::ComposeGraph(
+        **qnn_manager, context_handle.Value().get(), partition,
+        entry_point_name));
+    LITERT_LOG(LITERT_INFO, "%s", "Graph composed");
+    
+    // // Generate Context binary
+    // LITERT_LOG(LITERT_INFO, "%s", "Generating context binary");
+    // LITERT_RETURN_IF_ERROR((*qnn_manager)
+    //                            ->GenerateContextBinary(context_handle.Value().get(),
+    //                                                    result->context_bin[partition_idx]));
+    // LITERT_LOG(LITERT_INFO, "Context binary %d generated", partition_idx);
+    // const std::string output_path =
+    //     "/local/mnt/workspace/jiunkaiy/LiteRT/test_partition/qnn_partition_" +
+    //     std::to_string(partition_idx) + ".bin";
+    // std::ofstream fout(output_path, std::ios::binary);
+    // fout.write(result->context_bin[partition_idx].data(),
+    //            static_cast<int64_t>(result->context_bin[partition_idx].size()));
+    // LITERT_LOG(LITERT_INFO, "qnn_partition_%d.bin generated", partition_idx);
   }
   *compiled_result = result.release();
 

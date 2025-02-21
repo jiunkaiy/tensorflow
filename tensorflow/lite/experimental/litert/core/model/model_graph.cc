@@ -213,6 +213,11 @@ bool DCE(LiteRtSubgraphT& subgraph) {
   const auto ops_removed = subgraph.RemoveOpIf(IsOpDead);
 
   auto rm_tensor = [&subgraph = std::as_const(subgraph)](const auto& t) {
+    // if (IsTensorDead(t) && !IsIO(subgraph, t)) {
+    //   if (t.Name().find("constant") != std::string::npos) {
+    //     return false;
+    //   }
+    // }
     return IsTensorDead(t) && !IsIO(subgraph, t);
   };
   const auto tensors_removed = subgraph.RemoveTensorIf(rm_tensor);
