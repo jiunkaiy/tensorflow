@@ -5,9 +5,7 @@
 
 #include <algorithm>
 #include <cmath>
-#include <cstring>
 #include <iostream>
-#include <numeric>
 
 namespace qnn {
 

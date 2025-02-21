@@ -175,7 +175,7 @@ litert_lib(
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/strings:string_view",
         "@com_google_absl//absl/types:span",
-        "//third_party/qairt/latest:qnn_lib_headers",
+        # copybara:uncomment "//third_party/qairt/latest:qnn_lib_headers",
         "//tensorflow/lite/experimental/litert/c:litert_common",
         "//tensorflow/lite/experimental/litert/c:litert_logging",
         "//tensorflow/lite/experimental/litert/c:litert_model",
@@ -188,5 +188,34 @@ litert_lib(
         "//tensorflow/lite/experimental/litert/vendors/qualcomm:qnn_manager",
         "//tensorflow/lite/experimental/litert/vendors/qualcomm/compiler/IR:qnn_op",
         "//tensorflow/lite/experimental/litert/vendors/qualcomm/compiler/IR:qnn_tensor",
+    ],
+)
+
+litert_test(
+    name = "graph_handler_test",
+    srcs = ["graph_handler_test.cc"],
+    linkstatic = True,
+    tags = [
+        # Tests with ungrte deps do not currently work on forge.
+        "no-remote-exec",
+        "notap",
+        # Don't build/test in OS until qnn is available.
+        "nobuilder",
+        "no_oss",
+        # Sanitizer runtime doesn't work with anything that loads libQnnHtp.so.
+        "nosan",
+    ],
+    # This test can be run only on Android and Linux.
+    target_compatible_with = select({
+        "@platforms//os:android": [],
+        "@platforms//os:linux": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    deps = [
+        ":qnn_compose_graph",
+        "//tensorflow/lite/experimental/litert/vendors/qualcomm:qnn_manager",
+        "//tensorflow/lite/experimental/litert/vendors/qualcomm/core:graph_handler",
+        "//tensorflow/lite/experimental/litert/test:common",
+        "//tensorflow/lite/experimental/litert/test:matchers_oss",
     ],
 )

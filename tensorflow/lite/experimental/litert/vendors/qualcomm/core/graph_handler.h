@@ -35,9 +35,15 @@ class GraphHandler {
 
   void RegisterOutputTensor(TensorWrapper& output_tensor);
 
+  std::vector<TensorWrapperRef>& GetInputTensors();
+
+  std::vector<TensorWrapperRef>& GetOutputTensors();
+
   bool AddNode(const OpWrapper& op_wrapper);
 
   bool Finalize();
+
+  bool Execute();
 
  private:
   void ReconstructAndRegisterTensor(

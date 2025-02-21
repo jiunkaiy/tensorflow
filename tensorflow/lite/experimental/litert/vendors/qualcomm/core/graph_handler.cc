@@ -87,6 +87,14 @@ void GraphHandler::RegisterOutputTensor(TensorWrapper& output_tensor) {
   output_tensors_.emplace_back(output_tensor);
 }
 
+std::vector<TensorWrapperRef>& GraphHandler::GetInputTensors() {
+  return input_tensors_;
+}
+
+std::vector<TensorWrapperRef>& GraphHandler::GetOutputTensors() {
+  return output_tensors_;
+}
+
 bool GraphHandler::AddNode(const OpWrapper& op_wrapper) {
   const auto status =
       qnn_interface_->graphAddNode(graph_handle_, op_wrapper.GetOpConfig());
@@ -96,6 +104,22 @@ bool GraphHandler::AddNode(const OpWrapper& op_wrapper) {
 bool GraphHandler::Finalize() {
   const auto status =
       qnn_interface_->graphFinalize(graph_handle_, nullptr, nullptr);
+  return status == QNN_SUCCESS;
+}
+
+bool GraphHandler::Execute() {
+  std::vector<Qnn_Tensor_t> inputs(input_tensors_.size());
+  for (size_t i = 0; i < inputs.size(); ++i) {
+    input_tensors_[i].get().CloneTo(inputs[i]);
+  }
+  std::vector<Qnn_Tensor_t> outputs(output_tensors_.size());
+  for (size_t i = 0; i < outputs.size(); ++i) {
+    output_tensors_[i].get().CloneTo(outputs[i]);
+  }
+  const auto status = qnn_interface_->graphExecute(
+      graph_handle_, inputs.data(), inputs.size(), outputs.data(),
+      outputs.size(),
+      /*profileHandle=*/nullptr, /*signalHandle=*/nullptr);
   return status == QNN_SUCCESS;
 }
 
