@@ -23,8 +23,6 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
-#include "third_party/qairt/latest/include/QNN/QnnCommon.h"
-#include "third_party/qairt/latest/include/QNN/QnnTypes.h"
 #include "tensorflow/lite/experimental/litert/c/litert_common.h"
 #include "tensorflow/lite/experimental/litert/c/litert_logging.h"
 #include "tensorflow/lite/experimental/litert/c/litert_model.h"
@@ -60,6 +58,8 @@
 #include "tensorflow/lite/experimental/litert/vendors/qualcomm/core/wrappers/quantize_params_wrapper.h"
 #include "tensorflow/lite/experimental/litert/vendors/qualcomm/core/wrappers/tensor_wrapper.h"
 #include "tensorflow/lite/experimental/litert/vendors/qualcomm/qnn_manager.h"
+#include "third_party/qairt/latest/include/QNN/QnnCommon.h"
+#include "third_party/qairt/latest/include/QNN/QnnTypes.h"
 
 namespace litert::qnn {
 
@@ -183,14 +183,17 @@ LiteRtStatus ConvertTensor(const litert::Tensor& litert_tensor,
   }
 
   if (litert_tensor.IsSubgraphInput()) {
+    printf(" IsSubgraphInput\n");
     auto& res = tensor_pool.CreateInputTensor(qnn_data_type, quantize_params,
                                               dimentions);
     tensor_wrapper = &res;
   } else if (litert_tensor.IsSubgraphOutput()) {
+    printf(" IsSubgraphOutput\n");
     auto& res = tensor_pool.CreateOutpuTensor(qnn_data_type, quantize_params,
                                               dimentions);
     tensor_wrapper = &res;
   } else if (litert_tensor.IsConstant()) {
+    printf(" IsConstant\n");
     LITERT_ENSURE(litert_tensor.HasWeights(),
                   kLiteRtStatusErrorInvalidLegalization,
                   "Empty weights for constant tensor.");
@@ -449,6 +452,8 @@ LiteRtStatus MapGraph(QnnManager& qnn, Qnn_ContextHandle_t context_handle,
     ::qnn::TensorWrapper* tensor_wrapper{nullptr};
     LITERT_RETURN_IF_ERROR(
         ConvertTensor(subgraph_input, tensor_pool, tensor_wrapper));
+    printf("%s - %s\n", std::string(subgraph_input.Name()).c_str(),
+           std::string(tensor_wrapper->GetName()).c_str());
     litert_tensor_to_wrapper.emplace(subgraph_input.Get(), tensor_wrapper);
   }
 
@@ -462,11 +467,19 @@ LiteRtStatus MapGraph(QnnManager& qnn, Qnn_ContextHandle_t context_handle,
   for (const auto& op : graph_mapper.Graph().Ops()) {
     std::vector<::qnn::TensorWrapperRef> input_tensors;
     for (const auto& input : op.Inputs()) {
+      const auto ranked_tensor_type = input.RankedTensorType();
+      const auto litert_layout = ranked_tensor_type->Layout();
+      if (litert_layout.Rank() == 1 && litert_layout.Dimensions().size() == 1 &&
+          litert_layout.Dimensions()[0] == 0) {
+        continue;
+      }
       if (const auto it = litert_tensor_to_wrapper.find(input.Get());
           it == litert_tensor_to_wrapper.end()) {
         ::qnn::TensorWrapper* tensor_wrapper{nullptr};
         LITERT_RETURN_IF_ERROR(
             ConvertTensor(input, tensor_pool, tensor_wrapper));
+        printf("in %s - %s\n", std::string(input.Name()).c_str(),
+               std::string(tensor_wrapper->GetName()).c_str());
         // add into map to capture re-used static tensor
         litert_tensor_to_wrapper.emplace(input.Get(), tensor_wrapper);
         input_tensors.emplace_back(*tensor_wrapper);
@@ -480,6 +493,8 @@ LiteRtStatus MapGraph(QnnManager& qnn, Qnn_ContextHandle_t context_handle,
       ::qnn::TensorWrapper* tensor_wrapper{nullptr};
       LITERT_RETURN_IF_ERROR(
           ConvertTensor(output, tensor_pool, tensor_wrapper));
+      printf("ou %s - %s\n", std::string(output.Name()).c_str(),
+             std::string(tensor_wrapper->GetName()).c_str());
       litert_tensor_to_wrapper.emplace(output.Get(), tensor_wrapper);
       output_tensors.emplace_back(*tensor_wrapper);
     }
