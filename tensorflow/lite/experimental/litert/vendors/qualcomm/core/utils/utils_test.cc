@@ -1,11 +1,12 @@
 // Copyright (c) Qualcomm Innovation Center, Inc. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 
+#include <gtest/gtest.h>
+
 #include <filesystem>
 #include <fstream>
 #include <string>
 
-#include <gtest/gtest.h>
 #include "tensorflow/lite/experimental/litert/vendors/qualcomm/core/utils/log.h"
 
 namespace litert {
