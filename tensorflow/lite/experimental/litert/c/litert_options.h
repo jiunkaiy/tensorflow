@@ -217,6 +217,42 @@ LiteRtStatus LiteRtGetSHLOCompositeOpName(LiteRtOp op, const char** name);
 LiteRtStatus LiteRtGetSHLOCompositeOpDecompositionSubgraphIndex(
     LiteRtOp op, int32_t* decomposition_subgraph_index);
 
+// Get option APIs for LiteRt ResizeBilnear op.
+//  Options:
+// - align_corners : bool
+// - half_pixel_centers : bool
+//
+//==============================================================================
+LiteRtStatus LiteRtGetResizeBilinearOption(LiteRtOp op, bool* align_corners,
+                                           bool* half_pixel_centers);
+
+//==============================================================================
+//
+// Get option APIs for LiteRt LeakyRelu op.
+//  Options:
+// - alpha : float
+//
+//==============================================================================
+LiteRtStatus LiteRtGetLeakyReluOption(LiteRtOp op, float* alpha);
+
+//==============================================================================
+//
+// Get option APIs for LiteRt DepthToSpace op.
+//  Options:
+// - block_size : int32_t
+//
+//==============================================================================
+LiteRtStatus LiteRtGetDepthToSpaceOption(LiteRtOp op, int32_t* block_size);
+
+//==============================================================================
+//
+// Get option APIs for LiteRt SpaceToDepth op.
+//  Options:
+// - block_size : int32_t
+//
+//==============================================================================
+LiteRtStatus LiteRtGetSpaceToDepthOption(LiteRtOp op, int32_t* block_size);
+
 #ifdef __cplusplus
 }
 #endif  // __cplusplus

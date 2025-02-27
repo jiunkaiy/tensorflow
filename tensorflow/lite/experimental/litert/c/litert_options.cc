@@ -413,3 +413,54 @@ LiteRtStatus LiteRtGetSHLOCompositeOpDecompositionSubgraphIndex(
       opts.AsStableHLOCompositeOptions()->decomposition_subgraph_index;
   return kLiteRtStatusOk;
 }
+
+LiteRtStatus LiteRtGetResizeBilinearOption(LiteRtOp op, bool* align_corners,
+                                           bool* half_pixel_centers) {
+  if (op->OpCode() != kLiteRtOpCodeTflResizeBilinear) {
+    return kLiteRtStatusErrorInvalidArgument;
+  }
+  auto& opts = detail::GetTflOptions(*op);
+  if (opts.value == nullptr) {
+    return kLiteRtStatusErrorInvalidArgument;
+  }
+  auto* options = opts.AsResizeBilinearOptions();
+  *align_corners = options->align_corners;
+  *half_pixel_centers = options->half_pixel_centers;
+  return kLiteRtStatusOk;
+}
+
+LiteRtStatus LiteRtGetLeakyReluOption(LiteRtOp op, float* alpha) {
+  if (op->OpCode() != kLiteRtOpCodeTflLeakyRelu) {
+    return kLiteRtStatusErrorInvalidArgument;
+  }
+  auto& opts = detail::GetTflOptions(*op);
+  if (opts.value == nullptr) {
+    return kLiteRtStatusErrorInvalidArgument;
+  }
+  *alpha = opts.AsLeakyReluOptions()->alpha;
+  return kLiteRtStatusOk;
+}
+
+LiteRtStatus LiteRtGetDepthToSpaceOption(LiteRtOp op, int32_t* block_size) {
+  if (op->OpCode() != kLiteRtOpCodeTflDepthToSpace) {
+    return kLiteRtStatusErrorInvalidArgument;
+  }
+  auto& opts = detail::GetTflOptions(*op);
+  if (opts.value == nullptr) {
+    return kLiteRtStatusErrorInvalidArgument;
+  }
+  *block_size = opts.AsDepthToSpaceOptions()->block_size;
+  return kLiteRtStatusOk;
+}
+
+LiteRtStatus LiteRtGetSpaceToDepthOption(LiteRtOp op, int32_t* block_size) {
+  if (op->OpCode() != kLiteRtOpCodeTflSpaceToDepth) {
+    return kLiteRtStatusErrorInvalidArgument;
+  }
+  auto& opts = detail::GetTflOptions(*op);
+  if (opts.value == nullptr) {
+    return kLiteRtStatusErrorInvalidArgument;
+  }
+  *block_size = opts.AsSpaceToDepthOptions()->block_size;
+  return kLiteRtStatusOk;
+}
