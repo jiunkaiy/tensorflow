@@ -260,7 +260,9 @@ LiteRtOp GraphSlicer::SlicePartitionFromGraph(
 
   MakeDispatchOp(*slicer.dispatch_op_);
   slicer.RerouteTensorsThroughCustomOp(root);
+
   DCE(root);
+
   return slicer.dispatch_op_;
 }
 
