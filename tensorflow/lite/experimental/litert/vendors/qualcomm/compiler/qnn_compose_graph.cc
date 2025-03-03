@@ -199,9 +199,6 @@ LiteRtStatus ConvertTensor(const litert::Tensor& litert_tensor,
       for (size_t i = 0; i < zero_points.size(); ++i) {
         zero_points[i] = per_channel_quant.zero_points[i];
       }
-      if(std::string(litert_tensor.Name()) == "arith.constant125"){
-        printf("\nConvertTensor %s %f %p\n", std::string(litert_tensor.Name()).c_str(), per_channel_quant.scales[0], per_channel_quant.scales);
-      }
       quantize_params.emplace<::qnn::AxisScaleOffsetQuantizeParamsWrapper>(
           per_channel_quant.quantized_dimension,
           absl::Span<const float>{per_channel_quant.scales,

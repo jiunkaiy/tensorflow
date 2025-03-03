@@ -254,7 +254,9 @@ LiteRtOp GraphSlicer::SlicePartitionFromGraph(
   ABSL_DCHECK(slicer.dispatch_op_->Outputs().empty());
   MakeDispatchOp(*slicer.dispatch_op_);
   slicer.RerouteTensorsThroughCustomOp(root);
+
   DCE(root);
+
   return slicer.dispatch_op_;
 }
 
