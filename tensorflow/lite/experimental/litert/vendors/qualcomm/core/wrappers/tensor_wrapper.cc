@@ -70,6 +70,12 @@ TensorWrapper::TensorWrapper(
   qnn_tensor_.v2.name = name_.c_str();
   qnn_tensor_.v2.type = tensor_type;
   qnn_tensor_.v2.dataFormat = QNN_TENSOR_DATA_FORMAT_FLAT_BUFFER;
+  if (data_type == QNN_DATATYPE_SFIXED_POINT_16) {
+    data_type = QNN_DATATYPE_UFIXED_POINT_16;
+    QNN_LOG_WARNING(
+        "Converting data from QNN_DATATYPE_SFIXED_POINT_16 to "
+        "QNN_DATATYPE_UFIXED_POINT_16...");
+  }
   qnn_tensor_.v2.dataType = data_type;
   std::visit(
       [this](auto&& quantize_params) -> void {
@@ -164,7 +170,20 @@ void TensorWrapper::SetTensorData(std::uint32_t bytes, const void* data) {
   }
 
   owned_data_.resize(bytes);
-  std::memcpy(owned_data_.data(), reinterpret_cast<const char*>(data), bytes);
+  if (qnn_tensor_.v2.dataType == QNN_DATATYPE_SFIXED_POINT_16) {
+    std::vector<std::uint16_t> uint16_data;
+    size_t data_len = std::accumulate(GetDims().begin(), GetDims().end(), 1,
+                                      std::multiplies<>());
+    auto* int16_data_ptr = reinterpret_cast<const std::int16_t*>(data);
+    QNN_LOG_WARNING("Converting data from int16 to uint16...");
+    for (size_t i = 0; i < data_len; ++i) {
+      uint16_data.emplace_back(static_cast<std::uint16_t>(int16_data_ptr[i]));
+    }
+    std::memcpy(owned_data_.data(),
+                reinterpret_cast<const char*>(uint16_data.data()), bytes);
+  } else {
+    std::memcpy(owned_data_.data(), reinterpret_cast<const char*>(data), bytes);
+  }
 
   qnn_tensor_.v2.clientBuf.dataSize = owned_data_.size();
   qnn_tensor_.v2.clientBuf.data = owned_data_.data();
