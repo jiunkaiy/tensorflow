@@ -230,13 +230,6 @@ LiteRtOp GraphSlicer::SlicePartitionFromGraph(
   for (auto* op : partition) {
     used_tensors.insert(op->Inputs().cbegin(), op->Inputs().cend());
   }
-  float * ptr = nullptr;
-  for (auto tensor_123: used_tensors) {
-    if(std::string(tensor_123->Name()) == "arith.constant125"){
-      ptr = tensor_123->Qparams().second.per_channel.scales;
-      printf("Found %f %p\n", ptr[0], ptr);
-    }
-  }
   for (auto* old_input : root.Inputs()) {
     if (used_tensors.contains(old_input)) {
       auto* new_input = &MakeClone(*slicer.slice_, *old_input);
@@ -261,9 +254,7 @@ LiteRtOp GraphSlicer::SlicePartitionFromGraph(
   ABSL_DCHECK(slicer.dispatch_op_->Outputs().empty());
   MakeDispatchOp(*slicer.dispatch_op_);
   slicer.RerouteTensorsThroughCustomOp(root);
-  if (ptr) printf("Before DCE %f %p\n", ptr[0], ptr);
   DCE(root);
-  if (ptr) printf("After DCE %f %p\n", ptr[0], ptr);
   return slicer.dispatch_op_;
 }
 
