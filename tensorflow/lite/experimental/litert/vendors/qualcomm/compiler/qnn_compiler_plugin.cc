@@ -270,6 +270,11 @@ void LiteRtDestroyCompilerPlugin(LiteRtCompilerPlugin compiler_plugin) {
   delete compiler_plugin;
 }
 
+bool endsWith(std::string_view str, std::string_view suffix) {
+  if (suffix.size() > str.size()) return false;
+  return std::equal(suffix.rbegin(), suffix.rend(), str.rbegin());
+}
+
 LiteRtStatus LiteRtCompilerPluginPartition(LiteRtCompilerPlugin compiler_plugin,
                                            LiteRtSubgraph subgraph,
                                            LiteRtOpList selected_ops) {
@@ -287,6 +292,7 @@ LiteRtStatus LiteRtCompilerPluginPartition(LiteRtCompilerPlugin compiler_plugin,
 
   int slice_id = 0;
   int layer_cnt = 0;
+  std::string slice_str = "";
   for (const auto& op : graph.Ops()) {
     for (const auto& output : op.Outputs()) {
       std::string node_name = std::string(op.Outputs()[0].Name());
@@ -297,10 +303,29 @@ LiteRtStatus LiteRtCompilerPluginPartition(LiteRtCompilerPlugin compiler_plugin,
       }
     }
   }
-  slice_id = layer_cnt / kDefaultNumSharding;
-  LITERT_LOG(LITERT_INFO, "#Layer %d", layer_cnt);
-  LITERT_LOG(LITERT_INFO, "slice_id %d", slice_id);
-  std::string slice_str = "Gemma2/layer_" + std::to_string(slice_id) + "/add1";
+  if (layer_cnt != 0) {
+    slice_id = layer_cnt / kDefaultNumSharding;
+    LITERT_LOG(LITERT_INFO, "#Layer %d", layer_cnt);
+    LITERT_LOG(LITERT_INFO, "slice_id %d", slice_id);
+    slice_str = "Gemma2/layer_" + std::to_string(slice_id) + "/add1";
+  } else {
+    for (const auto& op : graph.Ops()) {
+      for (const auto& output : op.Outputs()) {
+        std::string node_name = std::string(op.Outputs()[0].Name());
+        std::regex pattern(R"(Gemma2Block_(\d+);$)");
+        std::smatch match;
+        if (std::regex_search(node_name, match, pattern)) {
+          LITERT_LOG(LITERT_INFO, "Layer %s", node_name.c_str());
+          layer_cnt += 1;
+        }
+      }
+    }
+    slice_id = layer_cnt / kDefaultNumSharding;
+    LITERT_LOG(LITERT_INFO, "#Layer %d", layer_cnt);
+    LITERT_LOG(LITERT_INFO, "slice_id %d", slice_id);
+    slice_str = "Gemma2Block_" + std::to_string(slice_id) + ";";
+  }
+  
 
   LiteRtParamIndex partition_idx = kDefaultPartitionIndex;
   for (const auto& op : graph.Ops()) {
@@ -337,8 +362,7 @@ LiteRtStatus LiteRtCompilerPluginPartition(LiteRtCompilerPlugin compiler_plugin,
           LiteRtPushOp(selected_ops, op.Get(), partition_idx));
     }
     std::string node_name = std::string(op.Outputs()[0].Name());
-    if (node_name.find(slice_str) !=
-                    std::string::npos) {
+    if (endsWith(node_name, slice_str)) {
       LITERT_LOG(LITERT_INFO, "Slice here %s", node_name.c_str());
       partition_idx += 1;
     }
@@ -489,19 +513,19 @@ LiteRtStatus LiteRtCompilerPluginCompile(
         entry_point_name));
     LITERT_LOG(LITERT_INFO, "%s", "Graph composed");
     
-    // // Generate Context binary
-    // LITERT_LOG(LITERT_INFO, "%s", "Generating context binary");
-    // LITERT_RETURN_IF_ERROR((*qnn_manager)
-    //                            ->GenerateContextBinary(context_handle.Value().get(),
-    //                                                    result->context_bin[partition_idx]));
-    // LITERT_LOG(LITERT_INFO, "Context binary %d generated", partition_idx);
-    // const std::string output_path =
-    //     "/local/mnt/workspace/jiunkaiy/LiteRT/test_partition/qnn_partition_" +
-    //     std::to_string(partition_idx) + ".bin";
-    // std::ofstream fout(output_path, std::ios::binary);
-    // fout.write(result->context_bin[partition_idx].data(),
-    //            static_cast<int64_t>(result->context_bin[partition_idx].size()));
-    // LITERT_LOG(LITERT_INFO, "qnn_partition_%d.bin generated", partition_idx);
+    // Generate Context binary
+    LITERT_LOG(LITERT_INFO, "%s", "Generating context binary");
+    LITERT_RETURN_IF_ERROR((*qnn_manager)
+                               ->GenerateContextBinary(context_handle.Value().get(),
+                                                       result->context_bin[partition_idx]));
+    LITERT_LOG(LITERT_INFO, "Context binary %d generated", partition_idx);
+    const std::string output_path =
+        "/local/mnt/workspace/jiunkaiy/LiteRT/test_partition/qnn_partition_" +
+        std::to_string(partition_idx) + ".bin";
+    std::ofstream fout(output_path, std::ios::binary);
+    fout.write(result->context_bin[partition_idx].data(),
+               static_cast<int64_t>(result->context_bin[partition_idx].size()));
+    LITERT_LOG(LITERT_INFO, "qnn_partition_%d.bin generated", partition_idx);
   }
   *compiled_result = result.release();
 
