@@ -59,7 +59,7 @@ namespace {
 constexpr char kPluginManufacturer[] = "Qualcomm";
 constexpr LiteRtParamIndex kDefaultPartitionIndex = 0;
 // Support 2 sharding for a8w8 Gemma2 decode for now
-constexpr LiteRtParamIndex kDefaultNumSharding = 4;
+constexpr LiteRtParamIndex kDefaultNumSharding = 2;
 
 // clang-format off
 constexpr std::pair<const char*, QnnHtpDevice_Arch_t> kPluginSocModels[] = {
@@ -270,9 +270,54 @@ void LiteRtDestroyCompilerPlugin(LiteRtCompilerPlugin compiler_plugin) {
   delete compiler_plugin;
 }
 
-bool endsWith(std::string_view str, std::string_view suffix) {
+bool EndsWith(std::string_view str, std::string_view suffix) {
   if (suffix.size() > str.size()) return false;
   return std::equal(suffix.rbegin(), suffix.rend(), str.rbegin());
+}
+
+std::vector<std::string> GetSliceIdentifier(::litert::Subgraph& graph) {
+  std::unordered_map<std::string, std::string> slice_map;
+  std::vector<std::string> slice_str(kDefaultNumSharding - 1, "");
+  if (graph.Ops()[0].Outputs()[0].Name().find("ai_edge_torch.generative") !=
+      std::string::npos) {
+    for (const auto& op : graph.Ops()) {
+      for (const auto& output : op.Outputs()) {
+        std::string node_name = std::string(op.Outputs()[0].Name());
+        std::regex pattern(R"(Gemma2Block_(\d+);$)");
+        std::smatch match;
+        if (std::regex_search(node_name, match, pattern)) {
+          LITERT_LOG(LITERT_INFO, "Layer %s", node_name.c_str());
+          slice_map[match[1].str()] = "";
+        }
+      }
+    }
+    int slice_id = slice_map.size() / kDefaultNumSharding;
+    for (int i = 1; i < kDefaultNumSharding; ++i) {
+      slice_str[i - 1] = "Gemma2Block_" + std::to_string(slice_id * i) + ";";
+    }
+  } else {
+    for (const auto& op : graph.Ops()) {
+      for (const auto& output : op.Outputs()) {
+        std::string node_name = std::string(op.Outputs()[0].Name());
+        std::regex pattern(R"(Gemma2/layer_(\d+)/add(\d+)?)");
+        std::smatch match;
+        if (std::regex_search(node_name, match, pattern)) {
+          slice_map[match[1].str()] = match[2].str();
+        }
+      }
+    }
+    int slice_id = slice_map.size() / kDefaultNumSharding;
+    for (int i = 1; i < kDefaultNumSharding; ++i) {
+      slice_str[i - 1] = "Gemma2/layer_" + std::to_string(slice_id * i) +
+                         "/add" + slice_map.at(std::to_string(slice_id * i));
+    }
+  }
+
+  LITERT_LOG(LITERT_INFO, "#Layer %d", slice_map.size());
+  for (auto& slice : slice_str) {
+    LITERT_LOG(LITERT_INFO, " Slice: %s", slice.c_str());
+  }
+  return slice_str;
 }
 
 LiteRtStatus LiteRtCompilerPluginPartition(LiteRtCompilerPlugin compiler_plugin,
@@ -290,47 +335,7 @@ LiteRtStatus LiteRtCompilerPluginPartition(LiteRtCompilerPlugin compiler_plugin,
   }
   LITERT_LOG(LITERT_INFO, "%s", "QNN manager created");
 
-  int slice_id = 0;
-  int layer_cnt = 0;
-  std::vector<std::string> slice_str(kDefaultNumSharding - 1, "");
-  for (const auto& op : graph.Ops()) {
-    for (const auto& output : op.Outputs()) {
-      std::string node_name = std::string(op.Outputs()[0].Name());
-      std::regex pattern(R"(Gemma2/layer_(\d+)/add1)");
-      std::smatch match;
-      if (std::regex_search(node_name, match, pattern)) {
-        layer_cnt += 1;
-      }
-    }
-  }
-  if (layer_cnt != 0) {
-    slice_id = layer_cnt / kDefaultNumSharding;
-    LITERT_LOG(LITERT_INFO, "#Layer %d", layer_cnt);
-    LITERT_LOG(LITERT_INFO, "slice_id %d", slice_id);
-    for (int i = 1; i < kDefaultNumSharding; ++i) {
-      slice_str[i - 1] =
-          "Gemma2/layer_" + std::to_string(slice_id * i) + "/add1";
-    }
-  } else {
-    for (const auto& op : graph.Ops()) {
-      for (const auto& output : op.Outputs()) {
-        std::string node_name = std::string(op.Outputs()[0].Name());
-        std::regex pattern(R"(Gemma2Block_(\d+);$)");
-        std::smatch match;
-        if (std::regex_search(node_name, match, pattern)) {
-          LITERT_LOG(LITERT_INFO, "Layer %s", node_name.c_str());
-          layer_cnt += 1;
-        }
-      }
-    }
-    slice_id = layer_cnt / kDefaultNumSharding;
-    LITERT_LOG(LITERT_INFO, "#Layer %d", layer_cnt);
-    LITERT_LOG(LITERT_INFO, "slice_id %d", slice_id);
-    for (int i = 1; i < kDefaultNumSharding; ++i) {
-      slice_str[i - 1] = "Gemma2Block_" + std::to_string(slice_id * i) + ";";
-    }
-  }
-
+  std::vector<std::string> slice_identifier = GetSliceIdentifier(graph);
   LiteRtParamIndex partition_idx = kDefaultPartitionIndex;
   for (const auto& op : graph.Ops()) {
     // default constructed, won't add tensor to QNN
@@ -365,8 +370,8 @@ LiteRtStatus LiteRtCompilerPluginPartition(LiteRtCompilerPlugin compiler_plugin,
           // partitions.
           LiteRtPushOp(selected_ops, op.Get(), partition_idx));
     }
-    if (partition_idx < slice_str.size() &&
-        endsWith(op.Outputs()[0].Name(), slice_str[partition_idx])) {
+    if (partition_idx < slice_identifier.size() &&
+        EndsWith(op.Outputs()[0].Name(), slice_identifier[partition_idx])) {
       partition_idx += 1;
     }
   }
