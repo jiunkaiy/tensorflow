@@ -47,6 +47,8 @@ class TensorWrapper final {
 
   const std::vector<std::uint32_t>& GetDims() const { return dimentions_; };
 
+  std::uint32_t GetTensorNumElements() const;
+
   const QuantizeParamsWrapperVariant& GetQuantParams() const {
     return quantize_params_;
   };
@@ -85,7 +87,7 @@ class TensorWrapper final {
 
   // Allocate memory on owned_data_ for output tensors
   void AllocateOutputTensorBuffer() {
-    owned_data_.resize(GetTensorSize());
+    owned_data_.resize(GetTensorBytes());
     qnn_tensor_.v2.clientBuf.dataSize = owned_data_.size();
     qnn_tensor_.v2.clientBuf.data = owned_data_.data();
   }
@@ -94,9 +96,9 @@ class TensorWrapper final {
     return qnn_tensor_.v2.clientBuf.data;
   };
 
-  size_t GetTensorSize() const;
-
  private:
+  size_t GetTensorBytes() const;
+
   Qnn_TensorType_t GetTensorType() const;
 
   Qnn_Tensor_t qnn_tensor_{.version = QNN_TENSOR_VERSION_2,

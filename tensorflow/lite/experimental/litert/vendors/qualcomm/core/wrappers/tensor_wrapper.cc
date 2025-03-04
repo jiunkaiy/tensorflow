@@ -140,9 +140,13 @@ Qnn_TensorType_t TensorWrapper::GetTensorType() const {
   return qnn_tensor_.v2.type;
 }
 
-size_t TensorWrapper::GetTensorSize() const {
-  return std::accumulate(GetDims().begin(), GetDims().end(),
-                         GetDataTypeSize(GetDataType()), std::multiplies<>());
+std::uint32_t TensorWrapper::GetTensorNumElements() const {
+  return std::accumulate(GetDims().begin(), GetDims().end(), 1,
+                         std::multiplies<>());
+}
+
+size_t TensorWrapper::GetTensorBytes() const {
+  return GetDataTypeSize(GetDataType()) * GetTensorNumElements();
 }
 
 void TensorWrapper::SetDataType(Qnn_DataType_t data_type) {
@@ -157,10 +161,10 @@ void TensorWrapper::SetTensorData(std::uint32_t bytes, const void* data) {
     return;
   }
 
-  if (bytes != GetTensorSize()) {
+  if (bytes != GetTensorBytes()) {
     QNN_LOG_WARNING("Bytes: %u != TensorSize(): %lu, use TensorSize() instead.",
-                    bytes, GetTensorSize());
-    bytes = GetTensorSize();
+                    bytes, GetTensorBytes());
+    bytes = GetTensorBytes();
   }
 
   owned_data_.resize(bytes);
