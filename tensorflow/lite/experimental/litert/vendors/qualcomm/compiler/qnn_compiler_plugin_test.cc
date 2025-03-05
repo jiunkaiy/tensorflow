@@ -86,11 +86,11 @@ const auto kSupportedOps =
                     kAttentionModel,
                     kTransformerBlockModel,
                     kQSimpleMul16x16Model,
-                    kQMulAdd16x16Model,
-                    kQQueryEinsum16x8Model,
-                    kQKeyEinsum16x8Model,
-                    kQVauleEinsum16x8Model,
-                    kQAttnVecEinsum16x8Model
+                    kQMulAdd16x16Model
+                    // kQQueryEinsum16x8Model,
+                    // kQKeyEinsum16x8Model,
+                    // kQVauleEinsum16x8Model,
+                    // kQAttnVecEinsum16x8Model
                     );
 
 const auto kSupportedSocModels = Values(

@@ -17,6 +17,9 @@
 namespace qnn {
 constexpr uint32_t kInt16ToUint16 = 32768;
 
+template <typename...>
+inline constexpr bool always_false = false;
+
 // Get the Qnn_DataType_t associated with given C++ type.
 template <typename T>
 inline constexpr Qnn_DataType_t GetQnnDataType(const bool is_quant) {
@@ -37,7 +40,7 @@ inline constexpr Qnn_DataType_t GetQnnDataType(const bool is_quant) {
   } else if constexpr (std::is_same_v<T, float>) {
     return QNN_DATATYPE_FLOAT_32;
   } else {
-    static_assert(false, "Uknown C++ type");
+    static_assert(always_false<T>, "Uknown C++ type");
   }
   return QNN_DATATYPE_UNDEFINED;
 }
@@ -60,6 +63,8 @@ class TensorWrapper final {
                          const QuantizeParamsWrapperVariant& quantize_params,
                          const std::vector<std::uint32_t>& dimentions,
                          std::uint32_t bytes, const void* data);
+
+  TensorWrapper(const Qnn_Tensor_t& qnn_tensor);
 
   TensorWrapper(const TensorWrapper& other);
 
