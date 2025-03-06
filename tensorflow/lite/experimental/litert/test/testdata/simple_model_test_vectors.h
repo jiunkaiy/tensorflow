@@ -64,4 +64,16 @@ constexpr const LiteRtRankedTensorType kOutputTensorType = {
     /*.element_type=*/kLiteRtElementTypeFloat32,
     ::litert::BuildLayout(kTestOutputDimensions)};
 
+constexpr const LiteRtRankedTensorType kInput0TensorType_3 = {
+    /*.element_type=*/kLiteRtElementTypeInt16,
+    ::litert::BuildLayout(kTestInput0Dimensions)};
+
+constexpr const LiteRtRankedTensorType kInput1TensorType_3 = {
+    /*.element_type=*/kLiteRtElementTypeInt16,
+    ::litert::BuildLayout(kTestInput1Dimensions)};
+
+constexpr const LiteRtRankedTensorType kOutputTensorType_3 = {
+    /*.element_type=*/kLiteRtElementTypeInt16,
+    ::litert::BuildLayout(kTestOutputDimensions)};
+
 #endif  // TENSORFLOW_LITE_EXPERIMENTAL_LITERT_TEST_TESTDATA_SIMPLE_MODEL_TEST_VECTORS_H_

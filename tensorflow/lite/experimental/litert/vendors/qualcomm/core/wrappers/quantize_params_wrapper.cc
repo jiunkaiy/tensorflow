@@ -35,6 +35,14 @@ ScaleOffsetQuantizeParamsWrapper::ScaleOffsetQuantizeParamsWrapper(
 }
 
 ScaleOffsetQuantizeParamsWrapper::ScaleOffsetQuantizeParamsWrapper(
+    const Qnn_ScaleOffset_t& scale_offset) {
+  qnn_quantize_param_.encodingDefinition = QNN_DEFINITION_DEFINED;
+  qnn_quantize_param_.quantizationEncoding =
+      QNN_QUANTIZATION_ENCODING_SCALE_OFFSET;
+  qnn_quantize_param_.scaleOffsetEncoding = scale_offset;
+}
+
+ScaleOffsetQuantizeParamsWrapper::ScaleOffsetQuantizeParamsWrapper(
     const ScaleOffsetQuantizeParamsWrapper&) = default;
 
 ScaleOffsetQuantizeParamsWrapper::ScaleOffsetQuantizeParamsWrapper(
@@ -65,6 +73,23 @@ AxisScaleOffsetQuantizeParamsWrapper::AxisScaleOffsetQuantizeParamsWrapper(
 }
 
 AxisScaleOffsetQuantizeParamsWrapper::AxisScaleOffsetQuantizeParamsWrapper(
+    const Qnn_AxisScaleOffset_t& axis_scale_offset) {
+  scale_offsets_.resize(axis_scale_offset.numScaleOffsets);
+  for (size_t i = 0; i < scale_offsets_.size(); ++i) {
+    scale_offsets_[i].scale = axis_scale_offset.scaleOffset[i].scale;
+    scale_offsets_[i].offset = axis_scale_offset.scaleOffset[i].offset;
+  }
+  qnn_quantize_param_.encodingDefinition = QNN_DEFINITION_DEFINED;
+  qnn_quantize_param_.quantizationEncoding =
+      QNN_QUANTIZATION_ENCODING_AXIS_SCALE_OFFSET;
+  qnn_quantize_param_.axisScaleOffsetEncoding.axis = axis_scale_offset.axis;
+  qnn_quantize_param_.axisScaleOffsetEncoding.numScaleOffsets =
+      scale_offsets_.size();
+  qnn_quantize_param_.axisScaleOffsetEncoding.scaleOffset =
+      scale_offsets_.data();
+}
+
+AxisScaleOffsetQuantizeParamsWrapper::AxisScaleOffsetQuantizeParamsWrapper(
     const AxisScaleOffsetQuantizeParamsWrapper& rhs)
     : qnn_quantize_param_{rhs.qnn_quantize_param_},
       scale_offsets_{rhs.scale_offsets_} {
@@ -82,6 +107,26 @@ AxisScaleOffsetQuantizeParamsWrapper::AxisScaleOffsetQuantizeParamsWrapper(
 
 void AxisScaleOffsetQuantizeParamsWrapper::CloneTo(Qnn_QuantizeParams_t& dst) {
   dst = qnn_quantize_param_;
+}
+
+std::int32_t AxisScaleOffsetQuantizeParamsWrapper::GetAxis() const {
+  return qnn_quantize_param_.axisScaleOffsetEncoding.axis;
+}
+
+void AxisScaleOffsetQuantizeParamsWrapper::GetScales(
+    std::vector<float>& scales) const {
+  scales.reserve(scale_offsets_.size());
+  for (size_t i = 0; i < scale_offsets_.size(); ++i) {
+    scales.emplace_back(scale_offsets_[i].scale);
+  }
+}
+
+void AxisScaleOffsetQuantizeParamsWrapper::GetZeroPoints(
+    std::vector<std::int32_t>& zero_points) const {
+  zero_points.reserve(scale_offsets_.size());
+  for (size_t i = 0; i < scale_offsets_.size(); ++i) {
+    zero_points.emplace_back(-1 * scale_offsets_[i].offset);
+  }
 }
 
 }  // namespace qnn
