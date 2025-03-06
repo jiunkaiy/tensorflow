@@ -45,6 +45,12 @@ inline constexpr Qnn_DataType_t GetQnnDataType(const bool is_quant) {
   return QNN_DATATYPE_UNDEFINED;
 }
 
+void ConvertDataFromInt16toUInt16(const std::vector<std::int16_t>& src,
+                                  std::vector<std::uint16_t>& dst);
+
+void ConvertDataFromUInt16toInt16(const std::vector<std::uint16_t>& src,
+                                  std::vector<std::int16_t>& dst);
+
 std::size_t GetDataTypeSize(const Qnn_DataType_t data_type);
 
 class TensorWrapper final {

@@ -97,6 +97,7 @@ cc_test(
         "//tensorflow/lite/experimental/litert/test:simple_model_npu",
         "//tensorflow/lite/experimental/litert/vendors/c:litert_dispatch_c_api",
         "//tensorflow/lite/experimental/litert/c:litert_runtime_c_api_shared_lib",
+        "//tensorflow/lite/experimental/litert/vendors/qualcomm/core/wrappers:tensor_wrapper",
         "@com_google_absl//absl/log",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/types:span",

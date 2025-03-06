@@ -279,6 +279,7 @@ TensorWrapper::TensorWrapper(const Qnn_Tensor_t& qnn_tensor)
     std::copy(qnn_tensor_.v1.dimensions,
               qnn_tensor_.v1.dimensions + qnn_tensor_.v1.rank,
               std::back_inserter(dimentions_));
+    qnn_tensor_.v1.dimensions = dimentions_.data();
     if (const auto& quant_params = qnn_tensor_.v1.quantizeParams;
         quant_params.encodingDefinition == QNN_DEFINITION_DEFINED) {
       if (quant_params.quantizationEncoding ==
@@ -290,6 +291,7 @@ TensorWrapper::TensorWrapper(const Qnn_Tensor_t& qnn_tensor)
         quantize_params_.emplace<AxisScaleOffsetQuantizeParamsWrapper>(
             quant_params.axisScaleOffsetEncoding);
       } else {
+        // TODO: other quant type
       }
     }
     std::visit(
@@ -297,9 +299,6 @@ TensorWrapper::TensorWrapper(const Qnn_Tensor_t& qnn_tensor)
           quantize_params.CloneTo(qnn_tensor_.v1.quantizeParams);
         },
         quantize_params_);
-    qnn_tensor_.v2.name = name_.c_str();
-    qnn_tensor_.v2.rank = dimentions_.size();
-    qnn_tensor_.v2.dimensions = dimentions_.data();
   } else if (qnn_tensor_.version == Qnn_TensorVersion_t::QNN_TENSOR_VERSION_2) {
     // TODO: support v2 only
     name_ = qnn_tensor_.v2.name;
@@ -308,6 +307,7 @@ TensorWrapper::TensorWrapper(const Qnn_Tensor_t& qnn_tensor)
     std::copy(qnn_tensor_.v2.dimensions,
               qnn_tensor_.v2.dimensions + qnn_tensor_.v2.rank,
               std::back_inserter(dimentions_));
+    qnn_tensor_.v2.dimensions = dimentions_.data();
     if (const auto& quant_params = qnn_tensor_.v2.quantizeParams;
         quant_params.encodingDefinition == QNN_DEFINITION_DEFINED) {
       if (quant_params.quantizationEncoding ==
@@ -319,6 +319,7 @@ TensorWrapper::TensorWrapper(const Qnn_Tensor_t& qnn_tensor)
         quantize_params_.emplace<AxisScaleOffsetQuantizeParamsWrapper>(
             quant_params.axisScaleOffsetEncoding);
       } else {
+        // TODO: other quant type
       }
     }
     std::visit(
@@ -326,10 +327,24 @@ TensorWrapper::TensorWrapper(const Qnn_Tensor_t& qnn_tensor)
           quantize_params.CloneTo(qnn_tensor_.v2.quantizeParams);
         },
         quantize_params_);
-    qnn_tensor_.v2.name = name_.c_str();
-    qnn_tensor_.v2.rank = dimentions_.size();
-    qnn_tensor_.v2.dimensions = dimentions_.data();
   } else {
+    // TODO: tensor.v3
+  }
+}
+
+void ConvertDataFromInt16toUInt16(const std::vector<std::int16_t>& src,
+                                  std::vector<std::uint16_t>& dst) {
+  dst.reserve(src.size());
+  for (const auto& data : src) {
+    dst.emplace_back(data + kInt16ToUint16);
+  }
+}
+
+void ConvertDataFromUInt16toInt16(const std::vector<std::uint16_t>& src,
+                                  std::vector<std::int16_t>& dst) {
+  dst.reserve(src.size());
+  for (const auto& data : src) {
+    dst.emplace_back(data - kInt16ToUint16);
   }
 }
 

@@ -31,13 +31,19 @@ namespace qnn {
 
 namespace {
 
-Expected<void> InsertQnnTensors(int num_qnn_tensors, Qnn_Tensor_t* qnn_tensors,
-                                std::vector<::qnn::TensorWrapperRef>& tensors,
-                                std::list<::qnn::TensorWrapper>& owned_tensors) {
+Expected<void> InsertQnnTensors(
+    int num_qnn_tensors, Qnn_Tensor_t* qnn_tensors,
+    std::vector<::qnn::TensorWrapperRef>& tensors,
+    std::list<::qnn::TensorWrapper>& owned_tensors) {
   tensors.clear();
   tensors.reserve(num_qnn_tensors);
   for (auto i = 0; i < num_qnn_tensors; ++i) {
     auto& tensor_wrapper = owned_tensors.emplace_back(qnn_tensors[i]);
+    // TODO: link compile options, and remove constexpr if
+    constexpr bool useQInt16AsQUint16 = true;
+    if constexpr (useQInt16AsQUint16) {
+      tensor_wrapper.ConvertQint16ToQuint16();
+    }
     // TODO: handle error
     tensors.emplace_back(tensor_wrapper);
   }
@@ -141,7 +147,6 @@ Expected<void> ContextBinaryInfo::Init(
     if (auto status = InsertQnnTensors(context_binary_info.numContextTensors,
                                        context_binary_info.contextTensors,
                                        context_tensors_, owned_tensors_);
-        
         !status) {
       return Unexpected(status.Error());
     }
