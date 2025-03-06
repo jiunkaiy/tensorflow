@@ -26,6 +26,8 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
+#include "third_party/qairt/latest/include/QNN/QnnCommon.h"
+#include "third_party/qairt/latest/include/QNN/QnnTypes.h"
 #include "tensorflow/lite/experimental/litert/c/litert_common.h"
 #include "tensorflow/lite/experimental/litert/c/litert_logging.h"
 #include "tensorflow/lite/experimental/litert/c/litert_model.h"
@@ -71,8 +73,6 @@
 #include "tensorflow/lite/experimental/litert/vendors/qualcomm/core/wrappers/quantize_params_wrapper.h"
 #include "tensorflow/lite/experimental/litert/vendors/qualcomm/core/wrappers/tensor_wrapper.h"
 #include "tensorflow/lite/experimental/litert/vendors/qualcomm/qnn_manager.h"
-#include "third_party/qairt/latest/include/QNN/QnnCommon.h"
-#include "third_party/qairt/latest/include/QNN/QnnTypes.h"
 
 namespace litert::qnn {
 
@@ -188,12 +188,8 @@ LiteRtStatus ConvertTensor(const litert::Tensor& litert_tensor,
   switch (litert_tensor.QTypeId()) {
     case kLiteRtQuantizationPerTensor: {
       const auto per_tensor_quant = litert_tensor.PerTensorQuantization();
-      auto adjusted_zero_point = per_tensor_quant.zero_point;
-      if (ranked_tensor_type->ElementType() == litert::ElementType::Int16) {
-        adjusted_zero_point += 32768;
-      }
       quantize_params.emplace<::qnn::ScaleOffsetQuantizeParamsWrapper>(
-          per_tensor_quant.scale, adjusted_zero_point);
+          per_tensor_quant.scale, per_tensor_quant.zero_point);
       break;
     }
     case kLiteRtQuantizationPerChannel: {
@@ -202,9 +198,6 @@ LiteRtStatus ConvertTensor(const litert::Tensor& litert_tensor,
       std::vector<std::int32_t> zero_points(per_channel_quant.num_channels);
       for (size_t i = 0; i < zero_points.size(); ++i) {
         zero_points[i] = per_channel_quant.zero_points[i];
-        if (ranked_tensor_type->ElementType() == litert::ElementType::Int16) {
-          zero_points[i] += 32768;
-        }
       }
       quantize_params.emplace<::qnn::AxisScaleOffsetQuantizeParamsWrapper>(
           per_channel_quant.quantized_dimension,
@@ -621,11 +614,11 @@ LiteRtStatus MapGraph(QnnManager& qnn, Qnn_ContextHandle_t context_handle,
 
   std::ostringstream dump;
   for (const auto& op : graph_mapper.Graph().Ops()) {
-    // // Dump op info.
-    // dump.clear();
-    // Dump(*op.Get(), dump);
-    // std::string s = dump.str();
-    // LITERT_LOG(LITERT_INFO, "%s", s.data());
+    // Dump op info.
+    dump.clear();
+    Dump(*op.Get(), dump);
+    std::string s = dump.str();
+    LITERT_LOG(LITERT_INFO, "%s", s.data());
 
     std::vector<::qnn::TensorWrapperRef> input_tensors;
     for (const auto& input : op.Inputs()) {

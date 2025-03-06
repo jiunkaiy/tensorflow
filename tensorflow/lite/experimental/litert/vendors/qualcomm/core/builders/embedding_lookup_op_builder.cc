@@ -38,13 +38,9 @@ std::vector<OpWrapper> BuildEmbeddingLookupOp(
       int16_data.emplace_back(static_cast<std::int16_t>(int8_data[i]));
     }
 
-    auto q_param = std::get<ScaleOffsetQuantizeParamsWrapper>(
-        table_tensor.GetQuantParams());
-    ScaleOffsetQuantizeParamsWrapper adjusted_q_param(
-        q_param.GetScale(), q_param.GetZeroPoint() + 32768);
-
     TensorWrapper& int16_table_tensor = tensor_pool.CreateStaticTensor(
-        output_tensor.GetDataType(), adjusted_q_param, table_tensor.GetDims(),
+        output_tensor.GetDataType(), table_tensor.GetQuantParams(),
+        table_tensor.GetDims(),
         sizeof(decltype(int16_data)::value_type) * int16_data.size(),
         reinterpret_cast<void*>(int16_data.data()));
 

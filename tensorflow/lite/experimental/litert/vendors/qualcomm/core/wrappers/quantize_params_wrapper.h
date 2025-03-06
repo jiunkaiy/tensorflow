@@ -37,14 +37,6 @@ class ScaleOffsetQuantizeParamsWrapper final {
 
   void CloneTo(Qnn_QuantizeParams_t& dst);
 
-  float GetScale() const {
-    return qnn_quantize_param_.scaleOffsetEncoding.scale;
-  }
-
-  std::int32_t GetZeroPoint() const {
-    return -1 * qnn_quantize_param_.scaleOffsetEncoding.offset;
-  }
-
  private:
   Qnn_QuantizeParams_t qnn_quantize_param_ = QNN_QUANTIZE_PARAMS_INIT;
 };
