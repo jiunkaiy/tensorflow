@@ -12,14 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
+
 #include <cstddef>
 #include <cstring>
+#include <fstream>
 #include <memory>
 #include <utility>
 #include <vector>
 
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
 #include "absl/log/absl_log.h"
 #include "absl/log/log.h"
 #include "absl/strings/string_view.h"
@@ -35,6 +37,7 @@
 #include "tensorflow/lite/experimental/litert/cc/litert_environment.h"
 #include "tensorflow/lite/experimental/litert/cc/litert_model.h"
 #include "tensorflow/lite/experimental/litert/cc/litert_tensor_buffer.h"
+#include "tensorflow/lite/experimental/litert/core/model/model_load.h"
 #include "tensorflow/lite/experimental/litert/runtime/external_litert_buffer_context.h"
 #include "tensorflow/lite/experimental/litert/test/common.h"
 #include "tensorflow/lite/experimental/litert/test/testdata/simple_model_test_vectors.h"
@@ -392,6 +395,44 @@ TEST(DispatchDelegate, QualcommSharedInput) {
     }
     EXPECT_THAT(output_span, Pointwise(FloatNear(1e-5), kTestOutputTensor));
   }
+}
+
+TEST(DispatchDelegate, CompiledModelPartitions) {
+  std::ifstream file(testing::GetTestFilePath(
+                         "gemma2_2_layer_float32_seq64_ekv64_apply.tflite"),
+                     std::ios::binary);
+  // Check if the file was opened successfully
+  ASSERT_TRUE(file);
+  printf("gemma2_2_layer_float32_seq64_ekv64_apply.tflite");
+
+  // Read the file into a vector
+  std::vector<uint8_t> apply_result((std::istreambuf_iterator<char>(file)),
+                                    std::istreambuf_iterator<char>());
+  auto model = Model::CreateFromBuffer(
+      BufferRef<uint8_t>(absl::Span<const uint8_t>(apply_result)));
+  ASSERT_TRUE(model);
+
+#if !defined(__ANDROID__)
+  GTEST_SKIP() << "The rest of this test is specific to Android devices with a "
+                  "Qualcomm HTP";
+#endif
+  auto options = CompiledModel::Options::Create();
+  ASSERT_TRUE(options);
+  ASSERT_TRUE(options->SetHardwareAccelerators(kLiteRtHwAcceleratorCpu));
+
+  const std::vector<litert::Environment::Option> environment_options = {
+      litert::Environment::Option{
+          litert::Environment::OptionTag::DispatchLibraryDir,
+          kDispatchLibraryDir,
+      },
+  };
+  auto env =
+      litert::Environment::Create(absl::MakeConstSpan(environment_options));
+  ASSERT_TRUE(env);
+  auto res_compiled_model =
+      CompiledModel::Create(*env, *model, std::move(*options));
+  ASSERT_TRUE(res_compiled_model) << "Failed to initialize CompiledModel";
+  auto& compiled_model = *res_compiled_model;
 }
 
 }  // namespace
