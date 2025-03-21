@@ -214,4 +214,53 @@ void TensorWrapper::SetDataBy(std::uint32_t bytes, const void* data) {
   qnn_tensor_.v2.clientBuf.data = owned_data_.data();
 }
 
+void TensorWrapper::ConvertFP32ToFP16() {
+  if (GetDataType() != QNN_DATATYPE_FLOAT_32) {
+    return;
+  }
+  
+  // adjust static data
+  if (IsTensorStatic()) {
+    auto fp32_data = GetStaticTensorData<float>();
+    if (!fp32_data.has_value()) {
+      QNN_LOG_ERROR(
+          "Cannot convert static FP32 data to FP16 data since GetStaticTensorData failed.");
+      return;
+    }
+    QNN_LOG_DEBUG("Converting static tensor data from FP32 to FP16...");
+    std::vector<std::uint16_t> fp16_data;
+    fp16_data.reserve(fp32_data.value().size());
+    for (auto e: fp32_data.value()) {
+      uint32_t f32 = *reinterpret_cast<uint32_t*>(&e);
+      uint16_t f16 = 0;
+      // Extract sign, exponent, and mantissa from FP32
+      uint32_t sign = (f32 >> 31) & 0x1;
+      int32_t exponent = ((f32 >> 23) & 0xFF) - 127;
+      uint32_t mantissa = f32 & 0x7FFFFF;
+      // Handle special cases
+      if (exponent == 128) { // Inf or NaN
+          f16 = (sign << 15) | 0x7C00 | (mantissa ? 0x200 : 0);
+      } else if (exponent > 15) { // Overflow
+          f16 = (sign << 15) | 0x7C00;
+      } else if (exponent > -15) { // Normalized number
+          exponent += 15;
+          mantissa >>= 13;
+          f16 = (sign << 15) | (exponent << 10) | mantissa;
+      } else if (exponent > -24) { // Subnormal number
+          mantissa |= 0x800000;
+          mantissa >>= (14 - exponent);
+          f16 = (sign << 15) | mantissa;
+      } else { // Zero
+          f16 = sign << 15;
+      }
+      fp16_data.emplace_back(f16);
+    }
+    qnn_tensor_.v2.dataType = QNN_DATATYPE_FLOAT_16;
+    SetDataBy(fp16_data.size() * sizeof(std::uint16_t), fp16_data.data());
+  } else {
+    qnn_tensor_.v2.dataType = QNN_DATATYPE_FLOAT_16;
+  }
+  QNN_LOG_DEBUG("Hack FP16Int8 for QNN");
+}
+
 }  // namespace qnn
