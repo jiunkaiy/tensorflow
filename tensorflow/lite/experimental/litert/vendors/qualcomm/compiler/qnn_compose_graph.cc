@@ -703,6 +703,11 @@ LiteRtStatus MapGraph(QnnManager& qnn, Qnn_ContextHandle_t context_handle,
   // Insert all tensors into Qnn graph and update the id of Qnn_Tensor_t inside.
   tensor_pool.ForEach(
       [&qnn, &graph_mapper](::qnn::TensorWrapper& tensor_wrapper) {
+        // TODO(jiunkaiy): Use compile interface to get useFP32AsFP16.
+        constexpr bool useFP32AsFP16 = true;
+        if constexpr (useFP32AsFP16) {
+          tensor_wrapper.ConvertFP32ToFP16();
+        }
         qnn.Api()->tensorCreateGraphTensor(graph_mapper.QnnGraph(),
                                            &tensor_wrapper.GetQnnTensor());
       });

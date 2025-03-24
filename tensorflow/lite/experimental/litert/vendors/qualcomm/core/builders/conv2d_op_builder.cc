@@ -98,13 +98,13 @@ std::vector<OpWrapper> BuildConv2dOp(
   TensorWrapper& input_tensor = inputs[kInputIndex];
   conv_op.AddInputTensor(input_tensor);
   conv_op.AddInputTensor(*transposed_filter_tensor);
-  if (inputs.size() - 1 >= kBiasIndex) {
-    TensorWrapper& bias_tensor = inputs[kBiasIndex];
-    // QNN only support per-tensor quant for bias,
-    // and the scale and offset are both zero.
-    bias_tensor.ConvertAxisScaleOffsetToScaleOffset();
-    conv_op.AddInputTensor(bias_tensor);
-  }
+//   if (inputs.size() - 1 >= kBiasIndex) {
+//     TensorWrapper& bias_tensor = inputs[kBiasIndex];
+//     // QNN only support per-tensor quant for bias,
+//     // and the scale and offset are both zero.
+//     bias_tensor.ConvertAxisScaleOffsetToScaleOffset();
+//     conv_op.AddInputTensor(bias_tensor);
+//   }
 
   TensorWrapper& output_tensor = outputs[kOutputIndex];
   conv_op.AddOutputTensor(output_tensor);

@@ -281,6 +281,8 @@ class TensorWrapper final {
 
   size_t GetTensorBytes() const;
 
+  void ConvertFP32ToFP16();
+
  private:
   Qnn_TensorType_t GetTensorType() const;
 
