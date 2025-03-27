@@ -167,6 +167,7 @@ litert_lib(
         "//tensorflow/lite/experimental/litert/vendors/qualcomm/core/builders:split_op_builder",
         "//tensorflow/lite/experimental/litert/vendors/qualcomm/core/builders:tanh_op_builder",
         "//tensorflow/lite/experimental/litert/vendors/qualcomm/core/builders:transpose_op_builder",
+        "//tensorflow/lite/experimental/litert/vendors/qualcomm/core/utils:miscs",
         "//tensorflow/lite/experimental/litert/vendors/qualcomm/core/wrappers:op_wrapper",
         "//tensorflow/lite/experimental/litert/vendors/qualcomm/core/wrappers:quantize_params_wrapper",
         "//tensorflow/lite/experimental/litert/vendors/qualcomm/core/wrappers:tensor_wrapper",
